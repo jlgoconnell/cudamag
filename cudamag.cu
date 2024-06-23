@@ -1,4 +1,5 @@
 #include "cudamag.h"
+#include <iostream>
 
 
 __global__ void calcB(float* Bout, float* d_pts, int numPts)
@@ -17,15 +18,17 @@ CudaMag::CudaMag()
 {
     numPts = 0;
     //numMagnets = 0;
+
+    std::cout << "Magnet system created.\n";
 }
 
 CudaMag::~CudaMag()
 {
-    cudaFree(d_pts);
-    cudaFree(d_areas);
-    cudaFree(d_B);
+    //cudaFree(d_pts);
+    //cudaFree(d_areas);
+    //cudaFree(d_B);
 }
-
+/*
 void CudaMag::addMagnet(Magnet* magnet)
 {
     magnets.push_back(magnet);
@@ -54,6 +57,7 @@ void CudaMag::init()
     }
 }
 
+
 void CudaMag::calcBmat()
 {
     calcB<<<3, numPts>>>(d_B, d_pts, numPts);
@@ -63,3 +67,5 @@ void CudaMag::solve()
 {
 
 }
+
+*/

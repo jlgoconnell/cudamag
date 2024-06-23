@@ -25,6 +25,7 @@ class CudaMag
         //int numMagnets;
         float* d_B;
         float* d_sigma;
+
 };
 
 #endif

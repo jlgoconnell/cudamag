@@ -24,48 +24,11 @@ CudaMag::CudaMag()
 
 CudaMag::~CudaMag()
 {
-    //cudaFree(d_pts);
-    //cudaFree(d_areas);
-    //cudaFree(d_B);
-}
-/*
-void CudaMag::addMagnet(Magnet* magnet)
-{
-    magnets.push_back(magnet);
+    // Delete any memory allocated
 }
 
+// Set up memory, etc
 void CudaMag::init()
 {
-    // Calculate total points
-    for (int ii = 0; ii < magnets.size(); ii++) numPts += magnets[ii]->getNumPts();
-
-    // Allocate memory
-    cudaMalloc(&d_pts, numPts*3*sizeof(float));
-    cudaMalloc(&d_areas, numPts*magnets.size()*sizeof(float));
-    cudaMemset(d_areas, 0, numPts*magnets.size()*sizeof(float));
-    cudaMalloc(&d_B, numPts*numPts*3*sizeof(float));
-    cudaMalloc(&d_sigma, numPts*sizeof(float));
-
-    // Transfer data to GPU
-    int ctr = 0;
-    for (int ii = 0; ii < magnets.size(); ii++)
-    {
-        cudaMemcpyAsync(d_pts+ctr, magnets[ii]->getPts(), magnets[ii]->getNumPts()*3*sizeof(float), cudaMemcpyHostToDevice);
-        cudaMemcpyAsync(d_areas+ctr+numPts, magnets[ii]->getAreas(), magnets[ii]->getNumPts()*sizeof(float), cudaMemcpyHostToDevice);
-        cudaMemcpyAsync(d_sigma+ctr, magnets[ii]->getSigma(), magnets[ii]->getNumPts()*sizeof(float), cudaMemcpyHostToDevice);
-        ctr += magnets[ii]->getNumPts();
-    }
+    std::cout << "Initialising CudaMag.\n";
 }
-
-
-void CudaMag::calcBmat()
-{
-    calcB<<<3, numPts>>>(d_B, d_pts, numPts);
-}
-
-void CudaMag::solve()
-{
-
-}
-
-*/

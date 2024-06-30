@@ -1,4 +1,3 @@
 cudamag:
 	clear
-	nvcc main.cu cudamag.cu magnet.cu -o mag.out
-	./mag.out
+	nvcc -Xcompiler -fPIC -shared -o cudainterface.so cudainterface.cpp cudamag.cu

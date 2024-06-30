@@ -2,6 +2,7 @@
 #define CUDAMAG_H
 
 #include<vector>
+#include<iostream>
 #include "magnet.h"
 
 
@@ -18,7 +19,12 @@ class CudaMag
         void solve();
 
     private:
+        struct Magnet
+        {
+            int numVertices;
+        };
         std::vector<Magnet*> magnets;
+        int* testInt;
         float* d_pts;
         float* d_areas;
         int numPts;

@@ -22,9 +22,18 @@ void destroyMagnetSystem()
 }
 
 // Initialise data structures and memory
-void init(float* nodes, int numNodes, int* connectivity, int numConnections)
+void init(float* nodes, int numNodes, int* connectivity, int numConnections, float* sigma)
 {
-    magSys->init();
+    magSys->init(nodes, numNodes, connectivity, numConnections, sigma);
+}
+
+
+// Solve the system
+void solve()
+{
+    std::cout << "Solving magnet system.\n";
+    magSys->calcBmat();
+    magSys->solve();
 }
 
 }

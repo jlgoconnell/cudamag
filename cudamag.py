@@ -17,7 +17,9 @@ class Magnet:
         # Proabably come up with a convex hull here
         self.hull = ConvexHull(self.vertices)
         self.connectivity = self.hull.simplices
-        self.nodes = self.vertices # TODO: Add subdivision
+        self.nodes = self.vertices
+        self.sigma = np.matmul(self.hull.equations[:,:3], magnetisation)
+        # TODO: Add subdivision
 
     def subdivide(self, quantisation: int) -> None:
         raise NotImplementedError
@@ -41,6 +43,7 @@ class CudaMag:
         self.magnets: list[Magnet] = []
         self.nodes: list[list[float]] = []
         self.connectivity: list[list[int]] = []
+        self.sigma: list[float] = []
 
         # Setup C/C++ functions
         dll = ctypes.CDLL('./cudainterface.so')
@@ -81,15 +84,18 @@ class CudaMag:
         for magnet in self.magnets:
             self.connectivity.extend((magnet.connectivity + len(self.nodes)).tolist())
             self.nodes.extend(magnet.nodes)
+            self.sigma.extend(magnet.sigma)
 
         # Set up data structures for use in C
         p_nodes = [item for sublist in self.nodes for item in sublist]
         c_nodes = (ctypes.c_float * len(p_nodes))(*p_nodes)
         p_connectivity = [item for sublist in self.connectivity for item in sublist]
         c_connectivity = (ctypes.c_int * len(p_connectivity))(*p_connectivity)
+        p_sigma = [item for sublist in self.sigma for item in sublist]
+        c_sigma = (ctypes.c_float * len(p_sigma))(*p_sigma)
         
         # Call the init() function
-        self.init(ctypes.cast(c_nodes, ctypes.POINTER(ctypes.c_float)), len(p_nodes), ctypes.cast(c_connectivity, ctypes.POINTER(ctypes.c_int)), len(p_connectivity))
+        self.init(ctypes.cast(c_nodes, ctypes.POINTER(ctypes.c_float)), len(p_nodes), ctypes.cast(c_connectivity, ctypes.POINTER(ctypes.c_int)), len(p_connectivity), ctypes.cast(c_sigma, ctypes.POINTER(ctypes.c_float)))
 
 
     def solve_system(self) -> None:

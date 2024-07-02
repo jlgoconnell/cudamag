@@ -16,7 +16,6 @@ __global__ void calcB(float* Bout, float* d_pts, int numPts)
 
 CudaMag::CudaMag()
 {
-    numPts = 0;
     //numMagnets = 0;
 
     std::cout << "Magnet system created.\n";
@@ -25,10 +24,33 @@ CudaMag::CudaMag()
 CudaMag::~CudaMag()
 {
     // Delete any memory allocated
+    std::cout << "Freeing memory.\n";
+    cudaFree(d_connectivity);
+    cudaFree(d_nodes);
+    cudaFree(d_sigma);
+    std::cout << "Memory freed.\n";
 }
 
 // Set up memory, etc
-void CudaMag::init()
+void CudaMag::init(float* nodes, int numNodes, int* connectivity, int numConnections, float* sigma)
 {
     std::cout << "Initialising CudaMag.\n";
+    cudaMemcpy(d_connectivity, connectivity, numConnections*3*sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_nodes, nodes, numNodes*3*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_sigma, sigma, numNodes*sizeof(float), cudaMemcpyHostToDevice);
+    std::cout << "Memory allocated.\n";
+}
+
+
+// Solve for the B matrices
+void CudaMag::calcBmat()
+{
+
+}
+
+
+// Solve the system
+void CudaMag::solve()
+{
+
 }

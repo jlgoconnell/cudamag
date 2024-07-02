@@ -14,7 +14,7 @@ class CudaMag
         ~CudaMag();
 
         void addMagnet(Magnet* magnet);
-        void init();
+        void init(float* nodes, int numNodes, int* connectivity, int numConnections, float* sigma);
         void calcBmat();
         void solve();
 
@@ -24,11 +24,10 @@ class CudaMag
             int numVertices;
         };
         std::vector<Magnet*> magnets;
-        int* testInt;
-        float* d_pts;
-        float* d_areas;
-        int numPts;
-        //int numMagnets;
+
+        int* d_connectivity;
+        float* d_nodes;
+
         float* d_B;
         float* d_sigma;
 

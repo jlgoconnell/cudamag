@@ -3,7 +3,6 @@
 
 #include<vector>
 #include<iostream>
-#include "magnet.h"
 
 
 
@@ -13,20 +12,23 @@ class CudaMag
         CudaMag();
         ~CudaMag();
 
+        struct Magnet
+        {
+            int numVertices;
+        };
         void addMagnet(Magnet* magnet);
         void init(float* nodes, int numNodes, int* connectivity, int numConnections, float* sigma);
         void calcBmat();
         void solve();
 
     private:
-        struct Magnet
-        {
-            int numVertices;
-        };
         std::vector<Magnet*> magnets;
 
         int* d_connectivity;
         float* d_nodes;
+
+        int numNodes;
+        int numConnections;
 
         float* d_B;
         float* d_sigma;

@@ -56,6 +56,9 @@ class CudaMag:
         self.init = dll.init
         self.init.argtypes = [ctypes.POINTER(ctypes.c_float), ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.c_int]
         self.init.restype = None
+        self.solve = dll.solve
+        self.solve.argtypes = None
+        self.solve.restype = None
 
         # Create a magnet system
         self.mag_sys = self.get_magnet_system()
@@ -91,7 +94,7 @@ class CudaMag:
         c_nodes = (ctypes.c_float * len(p_nodes))(*p_nodes)
         p_connectivity = [item for sublist in self.connectivity for item in sublist]
         c_connectivity = (ctypes.c_int * len(p_connectivity))(*p_connectivity)
-        p_sigma = [item for sublist in self.sigma for item in sublist]
+        p_sigma = self.sigma#[item for sublist in self.sigma for item in sublist]
         c_sigma = (ctypes.c_float * len(p_sigma))(*p_sigma)
         
         # Call the init() function
@@ -100,3 +103,4 @@ class CudaMag:
 
     def solve_system(self) -> None:
         print("Solving system.")
+        self.solve()

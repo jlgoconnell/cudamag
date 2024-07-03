@@ -25,3 +25,4 @@ mag2 = Magnet([[0, 0, 2],
 test.add_magnet(mag)
 test.add_magnet(mag2)
 test.initialise()
+test.solve_system()

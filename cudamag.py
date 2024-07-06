@@ -41,12 +41,13 @@ class Magnet:
 class CudaMag:
     def __init__(self) -> None:
         self.magnets: list[Magnet] = []
+        self.magnet_idx: list[int] = []
         self.nodes: list[list[float]] = []
         self.connections: list[list[int]] = []
         self.sigma: list[float] = []
 
         # Setup C/C++ functions
-        dll = ctypes.CDLL('./cudainterface.so')
+        dll = ctypes.CDLL('./cudamag_cu.so')
         self.get_magnet_system = dll.getMagnetSystem
         self.get_magnet_system.argtypes = None
         self.get_magnet_system.restype = None
@@ -75,26 +76,30 @@ class CudaMag:
 
 
     def remove_magnet(self, magnet: Magnet) -> None:
-        try:
-            self.magnets.remove(magnet)
-            print("Removed magnet.")
-        except:
-            print("Magnet not found.")
+        raise NotImplementedError
+        #try:
+        #    self.magnets.remove(magnet)
+        #    print("Removed magnet.")
+        #except:
+        #    print("Magnet not found.")
 
 
     def initialise(self) -> None:
         # Combine all magnets into a single set of data structures
         for magnet in self.magnets:
+            self.magnet_idx.append(len(self.connections))
             self.connections.extend((magnet.connections + len(self.nodes)).tolist())
             self.nodes.extend(magnet.nodes)
             self.sigma.extend(magnet.sigma)
+
+        print(self.magnet_idx)
 
         # Set up data structures for use in C
         p_nodes = [item for sublist in self.nodes for item in sublist]
         c_nodes = (ctypes.c_float * len(p_nodes))(*p_nodes)
         p_connections = [item for sublist in self.connections for item in sublist]
         c_connections = (ctypes.c_int * len(p_connections))(*p_connections)
-        p_sigma = self.sigma#[item for sublist in self.sigma for item in sublist]
+        p_sigma = self.sigma
         c_sigma = (ctypes.c_float * len(p_sigma))(*p_sigma)
         
         # Call the init() function

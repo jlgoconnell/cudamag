@@ -115,3 +115,4 @@ void CudaMag::solve()
 {
     //this->calcBmat();
 }
+

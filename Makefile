@@ -1,3 +1,3 @@
 cudamag:
 	clear
-	nvcc -Xcompiler -fPIC -shared -o cudainterface.so cudainterface.cpp cudamag.cu
+	nvcc -Xcompiler -fPIC -shared -o cudamag_cu.so cudamag.cu

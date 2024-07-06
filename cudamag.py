@@ -16,7 +16,7 @@ class Magnet:
 
         # Proabably come up with a convex hull here
         self.hull = ConvexHull(self.vertices)
-        self.connectivity = self.hull.simplices
+        self.connections = self.hull.simplices
         self.nodes = self.vertices
         self.sigma = np.matmul(self.hull.equations[:,:3], magnetisation)
         # TODO: Add subdivision
@@ -42,7 +42,7 @@ class CudaMag:
     def __init__(self) -> None:
         self.magnets: list[Magnet] = []
         self.nodes: list[list[float]] = []
-        self.connectivity: list[list[int]] = []
+        self.connections: list[list[int]] = []
         self.sigma: list[float] = []
 
         # Setup C/C++ functions
@@ -85,20 +85,20 @@ class CudaMag:
     def initialise(self) -> None:
         # Combine all magnets into a single set of data structures
         for magnet in self.magnets:
-            self.connectivity.extend((magnet.connectivity + len(self.nodes)).tolist())
+            self.connections.extend((magnet.connections + len(self.nodes)).tolist())
             self.nodes.extend(magnet.nodes)
             self.sigma.extend(magnet.sigma)
 
         # Set up data structures for use in C
         p_nodes = [item for sublist in self.nodes for item in sublist]
         c_nodes = (ctypes.c_float * len(p_nodes))(*p_nodes)
-        p_connectivity = [item for sublist in self.connectivity for item in sublist]
-        c_connectivity = (ctypes.c_int * len(p_connectivity))(*p_connectivity)
+        p_connections = [item for sublist in self.connections for item in sublist]
+        c_connections = (ctypes.c_int * len(p_connections))(*p_connections)
         p_sigma = self.sigma#[item for sublist in self.sigma for item in sublist]
         c_sigma = (ctypes.c_float * len(p_sigma))(*p_sigma)
         
         # Call the init() function
-        self.init(ctypes.cast(c_nodes, ctypes.POINTER(ctypes.c_float)), len(p_nodes), ctypes.cast(c_connectivity, ctypes.POINTER(ctypes.c_int)), len(p_connectivity), ctypes.cast(c_sigma, ctypes.POINTER(ctypes.c_float)))
+        self.init(ctypes.cast(c_nodes, ctypes.POINTER(ctypes.c_float)), int(len(p_nodes)/3), ctypes.cast(c_connections, ctypes.POINTER(ctypes.c_int)), int(len(p_connections)/3), ctypes.cast(c_sigma, ctypes.POINTER(ctypes.c_float)))
 
 
     def solve_system(self) -> None:

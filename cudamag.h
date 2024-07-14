@@ -1,8 +1,9 @@
 #ifndef CUDAMAG_H
 #define CUDAMAG_H
 
-#include<vector>
-#include<iostream>
+#include <vector>
+#include <cublas_v2.h>
+#include <iostream>
 
 
 
@@ -17,21 +18,30 @@ class CudaMag
             int numVertices;
         };
         void addMagnet(Magnet* magnet);
-        void init(float* nodes, int numNodes, int* connectivity, int numConnections, float* sigma);
+        void init(float* nodes, int numNodes, int* connectivity, int numConnections, float* sigma, int* magnetIdx, int numMags);
         void calcBmat();
         void solve();
+
+        cublasHandle_t cublasHandle;
+        cudaStream_t stream;
 
     private:
         std::vector<Magnet*> magnets;
 
         int* d_connectivity;
         float* d_nodes;
+        float* d_areas;
 
         int numNodes;
         int numConnections;
+        int numMags;
 
         float* d_B;
         float* d_sigma;
+        float* d_sigmaSegmented;
+        float* d_forces;
+        float* d_tempMat;
+        float* d_tempMat2;
 
 };
 
@@ -58,9 +68,9 @@ void destroyMagnetSystem()
 }
 
 // Initialise data structures and memory
-void init(float* nodes, int numNodes, int* connectivity, int numConnections, float* sigma)
+void init(float* nodes, int numNodes, int* connectivity, int numConnections, float* sigma, int* magnetIdx, int numMags)
 {
-    magSys->init(nodes, numNodes, connectivity, numConnections, sigma);
+    magSys->init(nodes, numNodes, connectivity, numConnections, sigma, magnetIdx, numMags);
 }
 
 

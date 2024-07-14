@@ -18,7 +18,7 @@ class Magnet:
         self.hull = ConvexHull(self.vertices)
         self.connections = self.hull.simplices
         self.nodes = self.vertices
-        self.sigma = np.matmul(self.hull.equations[:,:3], magnetisation)
+        self.sigma = np.matmul(self.hull.equations[:,:3], 4*np.pi*magnetisation)
         # TODO: Add subdivision
 
     def subdivide(self, quantisation: int) -> None:
@@ -55,7 +55,7 @@ class CudaMag:
         self.destroy_magnet_system.argtypes = None
         self.destroy_magnet_system.restype = None
         self.init = dll.init
-        self.init.argtypes = [ctypes.POINTER(ctypes.c_float), ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.c_int]
+        self.init.argtypes = [ctypes.POINTER(ctypes.c_float), ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.c_int, ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_int), ctypes.c_int]
         self.init.restype = None
         self.solve = dll.solve
         self.solve.argtypes = None
@@ -101,9 +101,13 @@ class CudaMag:
         c_connections = (ctypes.c_int * len(p_connections))(*p_connections)
         p_sigma = self.sigma
         c_sigma = (ctypes.c_float * len(p_sigma))(*p_sigma)
+        p_mag_idx = self.magnet_idx
+        c_mag_idx = (ctypes.c_int * len(self.magnet_idx))(*self.magnet_idx)
+        c_num_mags = len(self.magnets)
+
         
         # Call the init() function
-        self.init(ctypes.cast(c_nodes, ctypes.POINTER(ctypes.c_float)), int(len(p_nodes)/3), ctypes.cast(c_connections, ctypes.POINTER(ctypes.c_int)), int(len(p_connections)/3), ctypes.cast(c_sigma, ctypes.POINTER(ctypes.c_float)))
+        self.init(ctypes.cast(c_nodes, ctypes.POINTER(ctypes.c_float)), int(len(p_nodes)/3), ctypes.cast(c_connections, ctypes.POINTER(ctypes.c_int)), int(len(p_connections)/3), ctypes.cast(c_sigma, ctypes.POINTER(ctypes.c_float)), ctypes.cast(c_mag_idx, ctypes.POINTER(ctypes.c_int)), c_num_mags)
 
 
     def solve_system(self) -> None:

@@ -22,8 +22,15 @@ The development of this project is a continual work in progress and will take ti
     - [ ] Point-monopole fields and forces
     - [ ] Geometry-based fields and forces
     - [ ] Non-unity relative permeability derivations
-- [ ] Basic point-monopole field and force computation with unity relative permeability
-- [ ] Geometry-based field and force computation with unity relative permeability
-- [ ] Geometry-based field and force computation with non-unity relative permeability
+- [ ] Basic point-monopole force computation with unity relative permeability
+    - [X] Basic force computation with minimum meshing
+    - [ ] Mesh manipulation function
+    - [ ] More accurate force computation with better meshing
+- [ ] Geometry-based force computation with unity relative permeability
+- [ ] Geometry-based force computation with non-unity relative permeability
 - [ ] Python interfacing with the CUDA C++ code allowing simple scripting and data postprocessing
+    - [X] C interface between Python and CUDA C++
+    - [X] Python driver script
+    - [ ] Python driver script additional features
+    - [ ] Python postprocessing features
 - [ ] Visualisations of magnetic interactions

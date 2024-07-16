@@ -61,9 +61,9 @@ __global__ void calcB(float* Bout, float* nodes, int* connectivity, int numConne
                 float invDistCubed = pow(pow(dx,2) + pow(dy,2) + pow(dz,2), -1.5);
 
                 // Insert value into matrix
-                Bout[idx*numConnections + ii] = area * dx * invDistCubed;
-                Bout[idx*numConnections + ii + numConnections*numConnections] = area * dy * invDistCubed;
-                Bout[idx*numConnections + ii + 2*numConnections*numConnections] = area * dz * invDistCubed;
+                Bout[idx*numConnections + ii] = area * dx * invDistCubed * 1e-7;
+                Bout[idx*numConnections + ii + numConnections*numConnections] = area * dy * invDistCubed * 1e-7;
+                Bout[idx*numConnections + ii + 2*numConnections*numConnections] = area * dz * invDistCubed * 1e-7;
             } else {
                 Bout[idx*numConnections + ii] = 0;
                 Bout[idx*numConnections + ii + numConnections*numConnections] = 0;
@@ -72,6 +72,28 @@ __global__ void calcB(float* Bout, float* nodes, int* connectivity, int numConne
 
         }
     }
+}
+
+
+
+void printMat(float* d_mat, int m, int n, int o)
+{
+    float* h_mat = (float*)malloc(m*n*o*sizeof(float));
+    cudaMemcpy(h_mat, d_mat, m*n*o*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
+    for (int kk = 0; kk < o; kk++)
+    {
+        for (int ii = 0; ii < m; ii++)
+        {
+            for (int jj = 0; jj < n; jj++)
+            {
+                printf("%1.5f,\t", h_mat[ii + jj*m + kk*m*n]);
+            }
+            std::cout << "\n";
+        }
+        std::cout << "\n";
+    }
+    free(h_mat);
 }
 
 
@@ -119,6 +141,7 @@ void CudaMag::init(float* nodes, int numNodes, int* connectivity, int numConnect
     cudaMalloc(&d_tempMat2, this->numConnections*numMags*3*sizeof(float));
     cudaMalloc(&d_forces, this->numMags*this->numMags*3*sizeof(float));
     cudaMalloc(&d_sigmaSegmented, this->numConnections*numMags*sizeof(float));
+    cudaMemset(d_sigmaSegmented, 0, this->numConnections*numMags*sizeof(float));
 
     // Copy necessary data
     cudaMemcpy(d_connectivity, connectivity, 3*numConnections*sizeof(int), cudaMemcpyHostToDevice);
@@ -130,11 +153,12 @@ void CudaMag::init(float* nodes, int numNodes, int* connectivity, int numConnect
 
     // Copy the surface charges
     cudaMemcpy(d_sigma, sigma, this->numConnections*sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemset(d_sigmaSegmented, 0, this->numConnections*numMags*sizeof(float));
     for (int ii = 0; ii < numMags-1; ii++) cudaMemcpyAsync(d_sigmaSegmented + magnetIdx[ii] + ii*this->numConnections, sigma + magnetIdx[ii], (magnetIdx[ii+1]-magnetIdx[ii]) * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpyAsync(d_sigmaSegmented + magnetIdx[numMags-1] + (numMags-1)*this->numConnections, sigma + magnetIdx[numMags-1], (this->numConnections-magnetIdx[numMags-1]) * sizeof(float), cudaMemcpyHostToDevice);
 
     cudaDeviceSynchronize();
+    // printf("d_sigmaSegmented is:\n");
+    // printMat(d_sigmaSegmented, this->numConnections, this->numMags, 1);
 
     std::cout << "Memory allocated.\n";
 }
@@ -154,7 +178,7 @@ void CudaMag::calcBmat()
     for (int ii = 0; ii < 3; ii++)
     {
         cublasSdgmm(cublasHandle,
-        CUBLAS_SIDE_LEFT,
+        CUBLAS_SIDE_RIGHT,
         this->numConnections,
         this->numConnections,
         d_B + ii*this->numConnections*this->numConnections,
@@ -163,8 +187,12 @@ void CudaMag::calcBmat()
         1,
         d_tempMat + ii*this->numConnections*this->numConnections,
         this->numConnections);
+        //cudaDeviceSynchronize();
     }
     cudaDeviceSynchronize();
+    //printf("d_tempMat is:\n");
+    //printMat(d_tempMat, this->numConnections, this->numConnections, 3);
+
     // Premultiply sigmaSegmented
     const float alpha = 1.0;
     const float beta = 0.0;
@@ -187,6 +215,9 @@ void CudaMag::calcBmat()
     this->numConnections*this->numMags,
     3);
     cudaDeviceSynchronize();
+    // printf("d_tempMat2 is:\n");
+    // printMat(d_tempMat2, this->numMags, this->numConnections, 3);
+
     // Postmultiply sigmaSegmented
     cublasSgemmStridedBatched(cublasHandle,
     CUBLAS_OP_N,
@@ -208,40 +239,9 @@ void CudaMag::calcBmat()
     3);
     cudaDeviceSynchronize();
 
-    int m = this->numMags;
-    int n = this->numMags;
-    float* h_forces = (float*)malloc(m*n*3*sizeof(float));
-    cudaMemcpy(h_forces, d_forces, m*n*3*sizeof(float), cudaMemcpyDeviceToHost);
-    cudaDeviceSynchronize();
-    for (int kk = 0; kk < 3; kk++)
-    {
-        for (int ii = 0; ii < m; ii++)
-        {
-            for (int jj = 0; jj < n; jj++)
-            {
-                std::cout << h_forces[ii + jj*m + kk*m*n] << ",\t";
-            }
-            std::cout << "\n";
-        }
-        std::cout << "\n";
-    }
-    free(h_forces);
+    printf("Forces:\n");
+    printMat(d_forces, this->numMags, this->numMags, 3);
 
-
-
-    // float* h_B = (float*)malloc(this->numConnections*this->numConnections*3*sizeof(float));
-    // cudaMemcpy(h_B, d_B, this->numConnections*this->numConnections*3*sizeof(float), cudaMemcpyDeviceToHost);
-    // for (int kk = 0; kk < 3; kk++)
-    // {
-    //     for (int jj = 0; jj < this->numConnections; jj++)
-    //     {
-    //         for (int ii = 0; ii < this->numConnections; ii++)
-    //         {
-
-    //         }
-    //     }
-    // }
-    // free(h_B);
     printf("Num elements: %i.\n", this->numConnections);
 }
 

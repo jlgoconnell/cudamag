@@ -2,10 +2,12 @@
 #include <cublas_v2.h>
 #include <iostream>
 
+#define THREADS_PER_BLOCK 256
+
 
 __global__ void calcAreas(float* areas, float* nodes, int* connectivity, int numConnections)
 {
-    int idx = threadIdx.x;
+    int idx = threadIdx.x + THREADS_PER_BLOCK*blockIdx.x;
 
     if (idx < numConnections)
     {
@@ -25,7 +27,7 @@ __global__ void calcAreas(float* areas, float* nodes, int* connectivity, int num
 
 __global__ void calcB(float* Bout, float* nodes, int* connectivity, int numConnections)
 {
-    int idx = threadIdx.x; // Fix later
+    int idx = threadIdx.x + THREADS_PER_BLOCK*blockIdx.x;
     float oneThird = 1.0/3.0;
     if (idx < numConnections)
     {
@@ -149,7 +151,7 @@ void CudaMag::init(float* nodes, int numNodes, int* connectivity, int numConnect
     cudaDeviceSynchronize();
 
     // Calculate the area of each triangular element
-    calcAreas<<<1, this->numConnections>>>(d_areas, d_nodes, d_connectivity, this->numConnections);
+    calcAreas<<<floor(this->numConnections / THREADS_PER_BLOCK)+1, THREADS_PER_BLOCK>>>(d_areas, d_nodes, d_connectivity, this->numConnections);
 
     // Copy the surface charges
     cudaMemcpy(d_sigma, sigma, this->numConnections*sizeof(float), cudaMemcpyHostToDevice);
@@ -171,7 +173,7 @@ void CudaMag::calcBmat()
 
     // Calculate big ol' matrix
     std::cout << "Calling calcB with " << this->numConnections << " threads.\n";
-    calcB<<<1, this->numConnections>>>(d_B, this->d_nodes, this->d_connectivity, this->numConnections);
+    calcB<<<floor(this->numConnections / THREADS_PER_BLOCK)+1, THREADS_PER_BLOCK>>>(d_B, this->d_nodes, this->d_connectivity, this->numConnections);
     cudaDeviceSynchronize();
 
     // To compute the forces, do a few matrix multiplications

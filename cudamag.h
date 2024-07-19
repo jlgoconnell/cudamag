@@ -19,6 +19,7 @@ class CudaMag
         };
         void addMagnet(Magnet* magnet);
         void init(float* nodes, int numNodes, int* connectivity, int numConnections, float* sigma, int* magnetIdx, int numMags);
+        void transferToGpu();
         void calcBmat();
         void solve();
 
@@ -28,13 +29,18 @@ class CudaMag
     private:
         std::vector<Magnet*> magnets;
 
-        int* d_connectivity;
-        float* d_nodes;
-        float* d_areas;
-
         int numNodes;
         int numConnections;
         int numMags;
+        int* magIdx;
+
+        int* h_connectivity;
+        float* h_nodes;
+        float* h_sigma;
+
+        int* d_connectivity;
+        float* d_nodes;
+        float* d_areas;
 
         float* d_B;
         float* d_sigma;
@@ -71,6 +77,12 @@ void destroyMagnetSystem()
 void init(float* nodes, int numNodes, int* connectivity, int numConnections, float* sigma, int* magnetIdx, int numMags)
 {
     magSys->init(nodes, numNodes, connectivity, numConnections, sigma, magnetIdx, numMags);
+}
+
+
+void transferToGpu()
+{
+    magSys->transferToGpu();
 }
 
 

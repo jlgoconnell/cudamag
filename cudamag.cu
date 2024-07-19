@@ -1,8 +1,20 @@
 #include "cudamag.h"
 #include <cublas_v2.h>
 #include <iostream>
+#include <chrono>
 
-#define THREADS_PER_BLOCK 256
+#define THREADS_PER_BLOCK 256  
+
+
+__global__ void subdivideMesh(float* nodes, int* connectivity, int numConnections, int meshIncrease)
+{
+    int idx = threadIdx.x + THREADS_PER_BLOCK*blockIdx.x;
+
+    if (idx < numConnections)
+    {
+        
+    }
+}
 
 
 __global__ void calcAreas(float* areas, float* nodes, int* connectivity, int numConnections)
@@ -111,6 +123,10 @@ CudaMag::~CudaMag()
 {
     // Delete any memory allocated
     std::cout << "Freeing memory.\n";
+    free(this->magIdx);
+    free(this->h_connectivity);
+    free(this->h_nodes);
+    free(this->h_sigma);
     cudaFree(d_connectivity);
     cudaFree(d_nodes);
     cudaFree(d_sigma);
@@ -132,7 +148,22 @@ void CudaMag::init(float* nodes, int numNodes, int* connectivity, int numConnect
     this->numNodes = numNodes;
     this->numConnections = numConnections;
     this->numMags = numMags;
+    this->magIdx = (int*)malloc(numMags*sizeof(int));
+    memcpy(this->magIdx, magnetIdx, numMags*sizeof(int));
 
+    this->h_connectivity = (int*)malloc(3*numConnections*sizeof(int));
+    memcpy(h_connectivity, connectivity, 3*numConnections*sizeof(int));
+    this->h_nodes = (float*)malloc(3*numNodes*sizeof(float));
+    memcpy(h_nodes, nodes, 3*numNodes*sizeof(float));
+    this->h_sigma = (float*)malloc(numNodes*sizeof(float));
+    memcpy(h_sigma, sigma, numNodes*sizeof(float));
+
+    std::cout << "Memory allocated.\n";
+}
+
+
+void CudaMag::transferToGpu()
+{
     // Allocate memory
     cudaMalloc(&d_connectivity, 3*this->numConnections*sizeof(int));
     cudaMalloc(&d_nodes, 3*this->numNodes*sizeof(float));
@@ -142,27 +173,21 @@ void CudaMag::init(float* nodes, int numNodes, int* connectivity, int numConnect
     cudaMalloc(&d_tempMat, this->numConnections*this->numConnections*3*sizeof(float));
     cudaMalloc(&d_tempMat2, this->numConnections*numMags*3*sizeof(float));
     cudaMalloc(&d_forces, this->numMags*this->numMags*3*sizeof(float));
-    cudaMalloc(&d_sigmaSegmented, this->numConnections*numMags*sizeof(float));
-    cudaMemset(d_sigmaSegmented, 0, this->numConnections*numMags*sizeof(float));
 
     // Copy necessary data
-    cudaMemcpy(d_connectivity, connectivity, 3*numConnections*sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_nodes, nodes, 3*this->numNodes*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_connectivity, this->h_connectivity, 3*numConnections*sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_nodes, this->h_nodes, 3*this->numNodes*sizeof(float), cudaMemcpyHostToDevice);
     cudaDeviceSynchronize();
 
     // Calculate the area of each triangular element
     calcAreas<<<floor(this->numConnections / THREADS_PER_BLOCK)+1, THREADS_PER_BLOCK>>>(d_areas, d_nodes, d_connectivity, this->numConnections);
 
     // Copy the surface charges
-    cudaMemcpy(d_sigma, sigma, this->numConnections*sizeof(float), cudaMemcpyHostToDevice);
-    for (int ii = 0; ii < numMags-1; ii++) cudaMemcpyAsync(d_sigmaSegmented + magnetIdx[ii] + ii*this->numConnections, sigma + magnetIdx[ii], (magnetIdx[ii+1]-magnetIdx[ii]) * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpyAsync(d_sigmaSegmented + magnetIdx[numMags-1] + (numMags-1)*this->numConnections, sigma + magnetIdx[numMags-1], (this->numConnections-magnetIdx[numMags-1]) * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_sigma, this->h_sigma, this->numConnections*sizeof(float), cudaMemcpyHostToDevice);
 
     cudaDeviceSynchronize();
     // printf("d_sigmaSegmented is:\n");
     // printMat(d_sigmaSegmented, this->numConnections, this->numMags, 1);
-
-    std::cout << "Memory allocated.\n";
 }
 
 
@@ -174,13 +199,27 @@ void CudaMag::calcBmat()
     // Calculate big ol' matrix
     std::cout << "Calling calcB with " << this->numConnections << " threads.\n";
     calcB<<<floor(this->numConnections / THREADS_PER_BLOCK)+1, THREADS_PER_BLOCK>>>(d_B, this->d_nodes, this->d_connectivity, this->numConnections);
-    cudaDeviceSynchronize();
+    //cudaDeviceSynchronize();
+
+    printf("Num elements: %i.\n", this->numConnections);
+}
+
+
+// Solve the system
+void CudaMag::solve()
+{
+    auto start = std::chrono::high_resolution_clock::now();
+
+    cudaMalloc(&d_sigmaSegmented, this->numConnections*numMags*sizeof(float));
+    cudaMemset(d_sigmaSegmented, 0, this->numConnections*numMags*sizeof(float));
+    for (int ii = 0; ii < numMags-1; ii++) cudaMemcpyAsync(d_sigmaSegmented + this->magIdx[ii] + ii*this->numConnections, this->h_sigma + this->magIdx[ii], (this->magIdx[ii+1]-this->magIdx[ii]) * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpyAsync(d_sigmaSegmented + this->magIdx[numMags-1] + (numMags-1)*this->numConnections, this->h_sigma + this->magIdx[numMags-1], (this->numConnections-this->magIdx[numMags-1]) * sizeof(float), cudaMemcpyHostToDevice);
 
     // To compute the forces, do a few matrix multiplications
     for (int ii = 0; ii < 3; ii++)
     {
         cublasSdgmm(cublasHandle,
-        CUBLAS_SIDE_RIGHT,
+        CUBLAS_SIDE_LEFT,
         this->numConnections,
         this->numConnections,
         d_B + ii*this->numConnections*this->numConnections,
@@ -191,7 +230,7 @@ void CudaMag::calcBmat()
         this->numConnections);
         //cudaDeviceSynchronize();
     }
-    cudaDeviceSynchronize();
+    //cudaDeviceSynchronize();
     //printf("d_tempMat is:\n");
     //printMat(d_tempMat, this->numConnections, this->numConnections, 3);
 
@@ -216,7 +255,7 @@ void CudaMag::calcBmat()
     this->numMags,
     this->numConnections*this->numMags,
     3);
-    cudaDeviceSynchronize();
+    //cudaDeviceSynchronize();
     // printf("d_tempMat2 is:\n");
     // printMat(d_tempMat2, this->numMags, this->numConnections, 3);
 
@@ -239,18 +278,13 @@ void CudaMag::calcBmat()
     this->numMags,
     this->numMags*this->numMags,
     3);
-    cudaDeviceSynchronize();
+    //cudaDeviceSynchronize();
 
-    printf("Forces:\n");
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+
+    printf("Forces computed in %f microseconds:\n", 1e6*elapsed.count());
     printMat(d_forces, this->numMags, this->numMags, 3);
 
-    printf("Num elements: %i.\n", this->numConnections);
-}
-
-
-// Solve the system
-void CudaMag::solve()
-{
-    //this->calcBmat();
 }
 

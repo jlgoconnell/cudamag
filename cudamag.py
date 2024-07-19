@@ -74,6 +74,9 @@ class CudaMag:
         self.solve = dll.solve
         self.solve.argtypes = None
         self.solve.restype = None
+        self.transfer_to_gpu = dll.transferToGpu
+        self.transfer_to_gpu.argtypes = None
+        self.transfer_to_gpu.restype = None
 
         # Create a magnet system
         self.mag_sys = self.get_magnet_system()
@@ -126,4 +129,5 @@ class CudaMag:
 
     def solve_system(self) -> None:
         print("Solving system.")
+        self.transfer_to_gpu()
         self.solve()

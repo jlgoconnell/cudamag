@@ -6,3 +6,4 @@
 *.fatbin
 .vscode
 __pycache__/
+src/cudamag.egg-info/*

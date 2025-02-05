@@ -1,11 +1,11 @@
-from cudamag import CudaMag, Magnet
+import cudamag
 import numpy as np
 
-test = CudaMag()
+test = cudamag.CudaMag()
 
 # Akoun and Yonnet
 d = 0.016
-mag1 = Magnet([[-0.01, -0.006, -0.003],
+mag1 = cudamag.Magnet([[-0.01, -0.006, -0.003],
               [0.01, -0.006, -0.003],
               [-0.01, 0.006, -0.003],
               [0.01, 0.006, -0.003],
@@ -15,7 +15,7 @@ mag1 = Magnet([[-0.01, -0.006, -0.003],
               [0.01, 0.006, 0.003]],
               [0, 0, 0.38/(4*np.pi*10**-7)],
               1.0)
-mag2 = Magnet([[-0.01+d, -0.014, 0.005],
+mag2 = cudamag.Magnet([[-0.01+d, -0.014, 0.005],
                [0.002+d, -0.014, 0.005],
                [-0.01+d, 0.006, 0.005],
                [0.002+d, 0.006, 0.005],
@@ -60,9 +60,9 @@ mag2 = Magnet([[-0.01+d, -0.014, 0.005],
 #                [l,  l,  -d/2-l]],
 #                [0, 0, 1], 1)
 
-for _ in range(2):
-    mag1.quadruple_mesh()
-    mag2.quadruple_mesh()
+# for _ in range(2):
+#     mag1.quadruple_mesh()
+#     mag2.quadruple_mesh()
 
 test.add_magnet(mag1)
 test.add_magnet(mag2)

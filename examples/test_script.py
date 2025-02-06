@@ -66,5 +66,4 @@ mag2 = cudamag.Magnet([[-0.01+d, -0.014, 0.005],
 
 test.add_magnet(mag1)
 test.add_magnet(mag2)
-test.initialise()
 test.solve_system()

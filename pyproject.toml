@@ -10,4 +10,5 @@ dependencies = [
     "numpy",
     "scipy",
     "cupy-cuda12x",
+    "open3d",
 ]

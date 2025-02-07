@@ -5,21 +5,15 @@ void calcB(float* centres, int numPts, float* B)
 
     if (index < numPts)
     {
-        const float coeff = 1e-7;
         float distCubed;
-        float srcPt[3] = {centres[index], centres[index + numPts], centres[index + 2 * numPts]};
+        float srcPt[3] = {centres[3 * index], centres[3 * index + 1], centres[3 * index + 2]};
         float relPos[3];
 
         for (int ii = 0; ii < numPts; ii++)
         {
-            for (int jj = 0; jj < 3; jj++) relPos[jj] = centres[ii + jj * numPts] - srcPt[jj];
+            for (int jj = 0; jj < 3; jj++) relPos[jj] = centres[3 * ii + jj] - srcPt[jj];
             distCubed = pow(relPos[0] * relPos[0] + relPos[1] * relPos[1] + relPos[2] * relPos[2], 1.5f);
-            if (distCubed > 0) for (int jj = 0; jj < 3; jj++) B[jj * numPts * numPts + index * numPts + ii] = coeff * relPos[jj] / distCubed;
+            if (distCubed > 0) for (int jj = 0; jj < 3; jj++) B[jj * numPts * numPts + index * numPts + ii] = relPos[jj] / distCubed;
         }
     }
-}
-
-int main()
-{
-    return 0;
 }

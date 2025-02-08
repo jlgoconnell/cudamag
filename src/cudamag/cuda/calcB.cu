@@ -7,7 +7,7 @@ void calcB(float* centres, int numPts, float* B)
     {
         float distCubed;
         float srcPt[3] = {centres[3 * index], centres[3 * index + 1], centres[3 * index + 2]};
-        float relPos[3];
+        float relPos[3]; // The relative position of each point with respect to the source point
 
         for (int ii = 0; ii < numPts; ii++)
         {

@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+requires-python = ">= 3.8"
+name = "cudamag"
+version = "0.1"
+dependencies = [
+    "numpy",
+    "scipy",
+    "cupy-cuda12x",
+    "open3d",
+]

@@ -84,10 +84,18 @@ class CudaMag:
             h_num_pts = h_num_pts + len(magnet._areas)
 
         # Assign GPU memory
-        d_centres = cp.array(h_centres, dtype=np.float32)
         d_sigma = cp.array(h_sigma, dtype=np.float32)
         d_area = cp.array(h_area, dtype=np.float32)
         d_B = cp.zeros((3, h_num_pts, h_num_pts), dtype=np.float32)
+
+        d_nodes = cp.array(np.concatenate([magnet._nodes for magnet in self._magnets]), dtype=np.float32)
+        h_connections = np.zeros((sum([len(magnet._connections) for magnet in self._magnets]), 3))
+        ctr = 0
+        # This is a bit janky, to fix:
+        for ii, magnet in enumerate(self._magnets):
+            h_connections[ctr:ctr+len(magnet._connections), :] = np.max(h_connections) + magnet._connections + ii
+            ctr = ctr + len(magnet._connections)
+        d_connections = cp.array(h_connections, dtype=np.uint32)
 
         # Set up CUDA code and construct B matrix
         threads_per_block = 32
@@ -95,7 +103,7 @@ class CudaMag:
         with open(self._dir_path + "/cuda/calcB.cu") as f:
             calc_B_kernel = cp.RawKernel(f.read(), 'calcB')
 
-        calc_B_kernel((threads_per_block,), (blocks_per_grid,), (d_centres, h_num_pts, d_B))
+        calc_B_kernel((threads_per_block,), (blocks_per_grid,), (d_nodes, d_connections, len(d_nodes), len(d_connections), d_B))
 
         # Compute forces
         d_F = d_area * d_sigma @ d_B @ (d_sigma * d_area).transpose() * 1e-7

@@ -35,6 +35,7 @@ class Magnet:
         self._nodes = np.asarray(self._mesh.vertices)
         self._sigma = np.asarray(self._mesh.triangle_normals) @ self._magnetisation
         self._centres = np.mean([self._nodes[self._connections[:,i],:] for i in range(3)], axis=0)
+        self._normals = np.asarray(self._mesh.triangle_normals)
         self._areas = np.array(0.5 * np.linalg.norm(np.cross(self._nodes[self._connections[:,0],:] - self._nodes[self._connections[:,1],:], self._nodes[self._connections[:,0],:] - self._nodes[self._connections[:,2],:]), axis=1))
 
 
@@ -77,7 +78,6 @@ class CudaMag:
         h_sigma = np.zeros((len(self._magnets), sum([len(magnet._areas) for magnet in self._magnets])))
         h_area = np.zeros((len(self._magnets), sum([len(magnet._areas) for magnet in self._magnets])))
         h_num_pts = 0
-        h_centres = np.concatenate(([magnet._centres.transpose() for magnet in self._magnets]), axis=1)
         for ii, magnet in enumerate(self._magnets):
             h_sigma[ii, h_num_pts:h_num_pts+len(magnet._areas)] = magnet._sigma
             h_area[ii, h_num_pts:h_num_pts+len(magnet._areas)] = magnet._areas
@@ -87,6 +87,7 @@ class CudaMag:
         d_sigma = cp.array(h_sigma, dtype=np.float32)
         d_area = cp.array(h_area, dtype=np.float32)
         d_B = cp.zeros((3, h_num_pts, h_num_pts), dtype=np.float32)
+        d_normals = cp.array(np.concatenate(([magnet._normals for magnet in self._magnets]), axis=0), dtype=np.float32)
 
         d_nodes = cp.array(np.concatenate([magnet._nodes for magnet in self._magnets]), dtype=np.float32)
         h_connections = np.zeros((sum([len(magnet._connections) for magnet in self._magnets]), 3))
@@ -103,7 +104,7 @@ class CudaMag:
         with open(self._dir_path + "/cuda/calcB.cu") as f:
             calc_B_kernel = cp.RawKernel(f.read(), 'calcB')
 
-        calc_B_kernel((threads_per_block,), (blocks_per_grid,), (d_nodes, d_connections, len(d_nodes), len(d_connections), d_B))
+        calc_B_kernel((threads_per_block,), (blocks_per_grid,), (d_nodes, d_connections, d_normals, len(d_nodes), len(d_connections), d_B))
 
         # Compute forces
         d_F = d_area * d_sigma @ d_B @ (d_sigma * d_area).transpose() * 1e-7

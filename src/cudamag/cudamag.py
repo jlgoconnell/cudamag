@@ -107,7 +107,7 @@ class CudaMag:
         calc_B_kernel((threads_per_block,), (blocks_per_grid,), (d_nodes, d_connections, d_normals, len(d_nodes), len(d_connections), d_B))
 
         # Compute forces
-        d_F = d_area * d_sigma @ d_B @ (d_sigma * d_area).transpose() * 1e-7
+        d_F = d_sigma @ d_B @ (d_sigma * d_area).transpose() * 1e-7
 
         h_F = np.sum(cp.asnumpy(d_F), axis=1)
         for ii in range(len(self._magnets)):

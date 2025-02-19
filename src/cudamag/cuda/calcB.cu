@@ -1,5 +1,6 @@
-extern "C" __global__
-void calcB(float* nodes, unsigned int* connections, float* normals, int numNodes, int numTriangles, float* B)
+// Main kernel, templated for single or double precision
+template<typename T>
+__global__ void calcB(T* nodes, unsigned int* connections, T* normals, unsigned int numNodes, unsigned int numTriangles, T* B)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -9,9 +10,9 @@ void calcB(float* nodes, unsigned int* connections, float* normals, int numNodes
 //----------------------------------------------------------------------------
 //      Import data
 //----------------------------------------------------------------------------
-        float distCubed;
-        float oneThird = 1.0/3.0;
-        float pts[3][3];
+        T distCubed;
+        T oneThird = 1.0/3.0;
+        T pts[3][3];
         /*  
                 [x1  y1  z1]
         pts  =  [x2  y2  z2]
@@ -24,14 +25,14 @@ void calcB(float* nodes, unsigned int* connections, float* normals, int numNodes
 //----------------------------------------------------------------------------
 //      Compute rotation matrix
 //----------------------------------------------------------------------------
-        float R[3][3];
+        T R[3][3];
 
         // Calculate the z-axis
         for (int ii = 0; ii < 3; ii++) R[2][ii] = normals[3 * index + ii]; // Should already be unit vector
 
         // Calculate the y-axis
         for (int ii = 0; ii < 3; ii++) R[1][ii] = pts[1][ii] - pts[0][ii];
-        float yLength = sqrt(R[1][0] * R[1][0] + R[1][1] * R[1][1] + R[1][2] * R[1][2]);
+        T yLength = sqrt(R[1][0] * R[1][0] + R[1][1] * R[1][1] + R[1][2] * R[1][2]);
         for (int ii = 0; ii < 3; ii++) R[1][ii] = R[1][ii] / yLength; // Make unit vector
 
         // Calculate the x-axis
@@ -43,38 +44,36 @@ void calcB(float* nodes, unsigned int* connections, float* normals, int numNodes
 //----------------------------------------------------------------------------
 //      Find points in the transformed local coordinate system
 //----------------------------------------------------------------------------
-        float transformedPts[3][3]; // The three vertices
+        T transformedPts[3][3]; // The three vertices
         for (int ii = 0; ii < 3; ii++) for (int jj = 0; jj < 3; jj++) transformedPts[ii][jj] = pts[ii][0] * R[jj][0] + pts[ii][1] * R[jj][1] + pts[ii][2] * R[jj][2];
-        float transformedSrcPt[3] = {0, 0, 0}; // The centre of the triangle
+        T transformedSrcPt[3] = {0, 0, 0}; // The centre of the triangle
         for (int ii = 0; ii < 3; ii++) for (int jj = 0; jj < 3; jj++) transformedSrcPt[jj] += oneThird * transformedPts[ii][jj];
         /*  
                          [x1  y1  z1]
         transformedPts = [x2  y2  z2]
                          [x3  y3  z3]
         */
-        
-        float relPos[3]; // The relative position of each point with respect to the source point
 
 
 //----------------------------------------------------------------------------
 //      Iterate through all other triangles and compute B field
 //----------------------------------------------------------------------------
         // Local coordinate variables of the base triangle
-        float xq[2] = {transformedPts[0][0], transformedPts[2][0]};
-        float yp[2][2] = {{transformedPts[0][1], transformedPts[1][1]}, {transformedPts[2][1], transformedPts[2][1]}};
-        float mp[2] = {(transformedPts[2][1] - transformedPts[0][1]) / (transformedPts[2][0] - transformedPts[0][0]), (transformedPts[2][1] - transformedPts[1][1]) / (transformedPts[2][0] - transformedPts[1][0])};
+        T xq[2] = {transformedPts[0][0], transformedPts[2][0]};
+        T yp[2][2] = {{transformedPts[0][1], transformedPts[1][1]}, {transformedPts[2][1], transformedPts[2][1]}};
+        T mp[2] = {(transformedPts[2][1] - transformedPts[0][1]) / (transformedPts[2][0] - transformedPts[0][0]), (transformedPts[2][1] - transformedPts[1][1]) / (transformedPts[2][0] - transformedPts[1][0])};
 
         // Declare relative variables
-        float otherCentre[3];
-        float transformedOtherCentre[3];
-        float X[2];
-        float Y[2][2];
-        float Z;
-        float Rpq[2][2];
-        float Spq[2][2];
-        float Tpq[2][2];
-        float Upq[2][2];
-        float localB[3];
+        T otherCentre[3];
+        T transformedOtherCentre[3];
+        T X[2];
+        T Y[2][2];
+        T Z;
+        T Rpq[2][2];
+        T Spq[2][2];
+        T Tpq[2][2];
+        T Upq[2][2];
+        T localB[3];
 
         // Iterate over all "query" triangles
         for (int ii = 0; ii < numTriangles; ii++)
@@ -109,9 +108,9 @@ void calcB(float* nodes, unsigned int* connections, float* normals, int numNodes
                     if (abs(Z) < 1e-6) Upq[jj][kk] = 0.0;
 
                     // Add to the local pseudo-B field
-                    localB[0] -= pow((float)(-1.0), (float)(jj+kk)) * (log(Tpq[jj][kk]) - mp[kk] / sqrt(1 + mp[kk] * mp[kk]) * log(Spq[jj][kk]));
-                    localB[1] -= pow((float)(-1.0), (float)(jj+kk)) / sqrt(1 + mp[kk] * mp[kk]) * log(Spq[jj][kk]);
-                    localB[2] -= pow((float)(-1.0), (float)(jj+kk)) * atan(Upq[jj][kk]);
+                    localB[0] -= pow((T)(-1.0), (T)(jj+kk)) * (log(Tpq[jj][kk]) - mp[kk] / sqrt(1 + mp[kk] * mp[kk]) * log(Spq[jj][kk]));
+                    localB[1] -= pow((T)(-1.0), (T)(jj+kk)) / sqrt(1 + mp[kk] * mp[kk]) * log(Spq[jj][kk]);
+                    localB[2] -= pow((T)(-1.0), (T)(jj+kk)) * atan(Upq[jj][kk]);
                 }
             }
 

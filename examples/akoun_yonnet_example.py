@@ -36,5 +36,5 @@ system.add_magnet(bottom_magnet)
 system.add_magnet(top_magnet)
 system.solve_system()
 
-print("The top magnet has a force of [", top_magnet._force[0], ", ", top_magnet._force[1], ", ", top_magnet._force[2], "].")
-print("The bottom magnet has a force of [", bottom_magnet._force[0], ", ", bottom_magnet._force[1], ", ", bottom_magnet._force[2], "].")
+print("The top magnet has a force of [", top_magnet.force[0], ", ", top_magnet.force[1], ", ", top_magnet.force[2], "].")
+print("The bottom magnet has a force of [", bottom_magnet.force[0], ", ", bottom_magnet.force[1], ", ", bottom_magnet.force[2], "].")

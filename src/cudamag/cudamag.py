@@ -51,6 +51,11 @@ class Magnet:
         raise NotImplementedError
 
 
+    @property
+    def force(self) -> np.array:
+        return self._force
+
+
 
 class CudaMag:
     def __init__(self) -> None:

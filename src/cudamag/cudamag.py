@@ -40,6 +40,8 @@ class Magnet:
 
 
     def move(self, displacement: np.array = np.array([0,0,0])) -> None:
+        # self._mesh.vertices += displacement
+        # self.compute_mesh_properties()
         raise NotImplementedError
 
 

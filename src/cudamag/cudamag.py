@@ -3,6 +3,8 @@ import uuid
 import os
 import cupy as cp
 import open3d as o3d
+from scipy.spatial import ConvexHull
+import matplotlib.pyplot as plt
 
 
 class Magnet:
@@ -16,21 +18,69 @@ class Magnet:
         self._id = uuid.uuid4()
 
         # Set up pointcloud
-        self._pc = o3d.t.geometry.PointCloud(vertices)
-        self._mesh = self._pc.compute_convex_hull().to_legacy()
+        # self._pc = o3d.t.geometry.PointCloud(vertices)
+        # self._mesh = self._pc.compute_convex_hull().to_legacy()
+        self._mesh = ConvexHull(self._vertices).simplices
 
         # Compute the mesh properties
-        self.compute_mesh_properties()
+        # self.compute_mesh_properties()
 
 
     def subdivide(self, quantisation: int = 1) -> None:
         # Subdivide mesh then recompute mesh properties
-        self._mesh = self._mesh.subdivide_midpoint(quantisation)
-        self.compute_mesh_properties()
+        # self._mesh = self._mesh.subdivide_midpoint(quantisation)
+        if quantisation > 1:
+            num_triangles = len(self._mesh)
+            # For each triangle in the mesh, subdivide it:
+            for i in range(num_triangles):
+            # i = 3
+            # if True:
+                # Do an n^2 subdivision routine
+                vec_a = self._vertices[self._mesh[i, 0], :] - self._vertices[self._mesh[i, 1], :]
+                vec_b = self._vertices[self._mesh[i, 2], :] - self._vertices[self._mesh[i, 1], :]
+                pt_ctr = len(self._vertices)-1
+                for j in range(quantisation):
+                    # Add new points
+                    for k in range(quantisation-j-1):
+                        self._vertices = np.append(self._vertices, [self._vertices[self._mesh[i, 1], :] + (j+0.0)/quantisation * vec_a + (k+1.0)/quantisation * vec_b], axis=0)
+                    if j != 0:
+                        self._vertices = np.append(self._vertices, [self._vertices[self._mesh[i, 1], :] + (j+0.0)/quantisation * vec_a + (quantisation-j)/quantisation * vec_b], axis=0)
+                    if j != quantisation-1:
+                        self._vertices = np.append(self._vertices, [self._vertices[self._mesh[i, 1], :] + (j+1.0)/quantisation * vec_a], axis=0)
+
+                # Compute the triangles
+                for j in range(quantisation-1):
+                    bl_tri = True
+                    if j == 0:
+                        offset = quantisation
+                    else:
+                        offset = quantisation - j + 1
+                    for k in range(2*(quantisation-j)-1):
+                        pass
+                        if bl_tri:
+                            self._mesh = np.append(self._mesh, [[pt_ctr, pt_ctr+1, pt_ctr+offset]], axis=0)
+                            pt_ctr += 1
+                            bl_tri = False
+                        else:
+                            self._mesh = np.append(self._mesh, [[pt_ctr, pt_ctr+offset, pt_ctr+offset-1]], axis=0)
+                            bl_tri = True
+
+                    if j == 0:
+                        # Fix ends
+                        self._mesh[-2*quantisation+1,0] = self._mesh[i, 1]
+                        self._mesh[-1,1] = self._mesh[i, 2]
+                    else:
+                        offset += 1
+                        pt_ctr += 1
+
+                
+                self._mesh[i, :] = [len(self._vertices)-2, len(self._vertices)-1, self._mesh[i, 0]]
+
+            # self.compute_mesh_properties()
 
     
     def compute_mesh_properties(self) -> None:
-        self._mesh.compute_triangle_normals()
+        # self._mesh.compute_triangle_normals()
         self._connections = np.asarray(self._mesh.triangles)
         self._nodes = np.asarray(self._mesh.vertices)
         self._sigma = np.asarray(self._mesh.triangle_normals) @ self._magnetisation

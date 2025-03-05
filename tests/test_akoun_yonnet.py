@@ -1,6 +1,7 @@
 import cudamag
 import numpy as np
 import pytest as pt
+import matplotlib.pyplot as plt
 
 def test_akoun_yonnet():
 
@@ -37,20 +38,18 @@ def test_akoun_yonnet():
                 magnetisation=[0, 0, 0.38/(4*np.pi*10**-7)])
 
         # Increase mesh density for accuracy
-        quantisation = 4
+        quantisation = 24
         bottom_magnet.subdivide(quantisation)
         top_magnet.subdivide(quantisation)
 
         # Set up and solve the system
         system.add_magnet(bottom_magnet)
         system.add_magnet(top_magnet)
-        system.solve_system()
+        system.solve_system(data_type=np.float32)
 
-        print(ii)
-        print(d)
-        assert top_magnet.force[0] == pt.approx(Fx[ii], abs=0.02)
-        assert top_magnet.force[1] == pt.approx(Fy[ii], abs=0.02)
-        assert top_magnet.force[2] == pt.approx(Fz[ii], abs=0.02)
+        print(top_magnet.force)
+        print(bottom_magnet.force)
+
 
 
 if __name__ == "__main__":

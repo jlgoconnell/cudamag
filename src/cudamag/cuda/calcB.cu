@@ -1,6 +1,6 @@
 // Main kernel, templated for single or double precision
 template<typename T>
-__global__ void calcB(T* nodes, unsigned int* connections, T* normals, unsigned int numNodes, unsigned int numTriangles, T* B)
+__global__ void calcB(T* nodes, unsigned int* connections, unsigned int numNodes, unsigned int numTriangles, T* B)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -19,39 +19,32 @@ __global__ void calcB(T* nodes, unsigned int* connections, T* normals, unsigned 
         // Find the vertices (pts) making up the "base" triangle
         for (int ii = 0; ii < 3; ii++) for (int jj = 0; jj < 3; jj++) pts[ii][jj] = nodes[3 * connections[3 * index + ii] + jj];
 
-        // Check ordering of points
+
+//----------------------------------------------------------------------------
+//      Compute rotation matrix
+//----------------------------------------------------------------------------
+        T R[3][3];
+        // Vectors from the first point to the second and third points
         T vecA[3], vecB[3];
         for (int ii = 0; ii < 3; ii++)
         {
             vecA[ii] = pts[1][ii] - pts[0][ii];
             vecB[ii] = pts[2][ii] - pts[0][ii];
         }
-        // Compute scalar triple product
-        T tripleProduct = normals[3 * index] * (vecA[1]*vecB[2]-vecB[1]*vecA[2]) + normals[3 * index + 1] * (vecA[2]*vecB[0]-vecB[2]*vecA[0]) + normals[3 * index + 2] * (vecA[0]*vecB[1]-vecB[0]*vecA[1]);
-        if (tripleProduct > 0)
-        {
-            // Points 2 and 3 should be swapped
-            for (int ii = 0; ii < 3; ii++) vecA[ii] = pts[1][ii];
-            for (int ii = 0; ii < 3; ii++) pts[1][ii] = pts[2][ii];
-            for (int ii = 0; ii < 3; ii++) pts[2][ii] = vecA[ii];
-        }
-        
 
-//----------------------------------------------------------------------------
-//      Compute rotation matrix
-//----------------------------------------------------------------------------
-        T R[3][3];
+        // Compute the local z-axis
+        R[2][0] = vecB[1] * vecA[2] - vecA[1] * vecB[2];
+        R[2][1] = vecB[2] * vecA[0] - vecA[2] * vecB[0];
+        R[2][2] = vecB[0] * vecA[1] - vecA[0] * vecB[1];
+        T zLength = sqrt(R[2][0] * R[2][0] + R[2][1] * R[2][1] + R[2][2] * R[2][2]);
+        for (int ii = 0; ii < 3; ii++) R[2][ii] = R[2][ii] / zLength;
 
-        // Calculate the z-axis
-        for (int ii = 0; ii < 3; ii++) R[2][ii] = normals[3 * index + ii]; // Should already be unit vector
-
-
-        // Calculate the y-axis
+        // Calculate the local y-axis
         for (int ii = 0; ii < 3; ii++) R[1][ii] = pts[1][ii] - pts[0][ii];
         T yLength = sqrt(R[1][0] * R[1][0] + R[1][1] * R[1][1] + R[1][2] * R[1][2]);
         for (int ii = 0; ii < 3; ii++) R[1][ii] = R[1][ii] / yLength; // Make unit vector
 
-        // Calculate the x-axis
+        // Calculate the local x-axis
         R[0][0] = R[1][1] * R[2][2] - R[1][2] * R[2][1];
         R[0][1] = R[1][2] * R[2][0] - R[1][0] * R[2][2];
         R[0][2] = R[1][0] * R[2][1] - R[1][1] * R[2][0];

@@ -130,7 +130,6 @@ class CudaMag:
         d_sigma = cp.array(h_sigma, dtype=data_type, order='C')
         d_area = cp.array(h_area, dtype=data_type, order='C')
         d_B = cp.zeros((3, h_num_pts, h_num_pts), dtype=data_type, order='C')
-        d_normals = cp.array(np.concatenate(([magnet._normals for magnet in self._magnets]), axis=0), dtype=data_type, order='C')
 
         d_nodes = cp.array(np.concatenate([magnet._vertices for magnet in self._magnets]), dtype=data_type, order='C')
         h_connections = np.zeros((sum([len(magnet._mesh) for magnet in self._magnets]), 3))
@@ -155,7 +154,7 @@ class CudaMag:
 
         num_triangles = sum([np.shape(magnet._mesh)[0] for magnet in self._magnets])
         num_nodes = sum([np.shape(magnet._vertices)[0] for magnet in self._magnets])
-        calc_B_kernel((threads_per_block,), (blocks_per_grid,), (d_nodes, d_connections, d_normals, num_nodes, num_triangles, d_B))
+        calc_B_kernel((threads_per_block,), (blocks_per_grid,), (d_nodes, d_connections, num_nodes, num_triangles, d_B))
 
         # Compute forces
         d_F = d_sigma @ d_B @ (d_sigma * d_area).transpose() * 1e-7

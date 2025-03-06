@@ -8,7 +8,7 @@ name = "cudamag"
 version = "0.1"
 dependencies = [
     "numpy",
+    "scipy",
     "pytest",
     "cupy-cuda12x",
-    "open3d",
 ]

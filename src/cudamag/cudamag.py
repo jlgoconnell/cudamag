@@ -2,9 +2,7 @@ import numpy as np
 import uuid
 import os
 import cupy as cp
-import open3d as o3d
 from scipy.spatial import ConvexHull
-import matplotlib.pyplot as plt
 
 
 class Magnet:
@@ -28,11 +26,6 @@ class Magnet:
         self._areas = 0.5 * np.linalg.norm(np.cross(vecs_a, vecs_b), axis=1)
 
         self._sigma = np.asarray(self._normals) @ self._magnetisation
-
-        pass
-
-        # Compute the mesh properties
-        # self.compute_mesh_properties()
 
 
     def subdivide(self, quantisation: int = 1) -> None:
@@ -85,35 +78,8 @@ class Magnet:
                 self._normals = np.append(self._normals, np.repeat([self._normals[i, :]], quantisation**2 - 1, axis=0), axis=0)
                 self._sigma = np.append(self._sigma, np.repeat(self._sigma[i], quantisation**2 - 1))
 
-            # Each triangle is split into quantisation^2 triangles, each with 1/quantisation^2 of the area
-            # and each having the same normal vector:
-            # self._areas = self._areas.repeat(quantisation**2)
-            # self._areas /= quantisation**2
-            # self._normals = self._normals.repeat(quantisation**2, axis=0)
-            # self._sigma = self._sigma.repeat(quantisation**2)
-
-            # self.compute_mesh_properties()
-
-    
-    def compute_mesh_properties(self) -> None:
-        # self._mesh.compute_triangle_normals()
-        # vecs_a = self._vertices[self._mesh[:, 1]] - self._vertices[self._mesh[:, 0]]
-        # vecs_b = self._vertices[self._mesh[:, 2]] - self._vertices[self._mesh[:, 0]]
-        # self._normals = np.cross(vecs_a, vecs_b)
-        # self._areas = 0.5 * np.array(np.linalg.norm(self._normals, axis=1))
-        # self._areas = 0.5 * np.linalg.norm(np.cross(vecs_a, vecs_b), axis=1)
-        # self._normals = 0.5 * self._normals / np.array([self._areas]).transpose()
-        # self._connections = self._mesh
-        # self._nodes = self._vertices
-        # self._sigma = np.asarray(self._normals) @ self._magnetisation
-        # self._normals = np.asarray(self._mesh.triangle_normals)
-        # self._areas = np.array(0.5 * np.linalg.norm(np.cross(self._nodes[self._connections[:,0],:] - self._nodes[self._connections[:,1],:], self._nodes[self._connections[:,0],:] - self._nodes[self._connections[:,2],:]), axis=1))
-        pass
-
 
     def move(self, displacement: np.array = np.array([0,0,0])) -> None:
-        # self._mesh.vertices += displacement
-        # self.compute_mesh_properties()
         raise NotImplementedError
 
 
@@ -135,12 +101,10 @@ class CudaMag:
     def __init__(self) -> None:
         self._magnets: list[Magnet] = []
         self._dir_path = os.path.dirname(os.path.realpath(__file__))
-        print("Initialised class.")
 
 
     def add_magnet(self, magnet: Magnet) -> None:
         self._magnets.append(magnet)
-        print("Added magnet.")
 
 
     def remove_magnet(self, magnet: Magnet) -> None:
@@ -195,9 +159,6 @@ class CudaMag:
 
         # Compute forces
         d_F = d_sigma @ d_B @ (d_sigma * d_area).transpose() * 1e-7
-
-        print("Max area:", cp.max(d_area))
-        print("Number of elements:", num_triangles)
 
         h_F = np.sum(cp.asnumpy(d_F), axis=1)
         for ii in range(len(self._magnets)):

@@ -1,7 +1,6 @@
 import cudamag
 import numpy as np
 import pytest as pt
-import matplotlib.pyplot as plt
 
 def test_akoun_yonnet():
 
@@ -9,7 +8,7 @@ def test_akoun_yonnet():
     d_vec = np.arange(0, 0.03, 0.002)
     Fx = [0.6, 0.25, 0, -0.25, -0.6, -0.9, -1.05, -1.1, -1.05, -0.88, -0.55, -0.25, -0.08, 0, 0.05, 0.05]
     Fy = [0.6, 0.63, 0.64, 0.63, 0.6, 0.51, 0.425, 0.31, 0.23, 0.14, 0.05, 0.02, 0, -0.01, -0.02, -0.02]
-    Fz = [-1.76, -1.85, -1.85, -1.85, -1.76, -1.47, -1.08, -0.64, -0.25, 0.15, 0.4, 0.43, 0.33, 0.25, 0.18, 0.15]
+    Fz = [-1.76, -1.85, -1.85, -1.85, -1.76, -1.47, -1.06, -0.64, -0.25, 0.15, 0.4, 0.43, 0.33, 0.25, 0.18, 0.15]
 
     for ii in range(len(d_vec)):
         d = d_vec[ii]
@@ -49,6 +48,10 @@ def test_akoun_yonnet():
 
         print(top_magnet.force)
         print(bottom_magnet.force)
+
+        assert top_magnet.force[0] == pt.approx(Fx[ii], abs=0.02)
+        assert top_magnet.force[1] == pt.approx(Fy[ii], abs=0.02)
+        assert top_magnet.force[2] == pt.approx(Fz[ii], abs=0.02)
 
 
 

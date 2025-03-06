@@ -4,11 +4,8 @@ __global__ void calcB(T* nodes, unsigned int* connections, T* normals, unsigned 
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
-
-
     if (index < numTriangles)
     {
-
 //----------------------------------------------------------------------------
 //      Import data
 //----------------------------------------------------------------------------
@@ -60,6 +57,7 @@ __global__ void calcB(T* nodes, unsigned int* connections, T* normals, unsigned 
         R[0][2] = R[1][0] * R[2][1] - R[1][1] * R[2][0];
 
 
+
 //----------------------------------------------------------------------------
 //      Find points in the transformed local coordinate system
 //----------------------------------------------------------------------------
@@ -70,7 +68,6 @@ __global__ void calcB(T* nodes, unsigned int* connections, T* normals, unsigned 
         transformedPts = [x2  y2  z2]
                          [x3  y3  z3]
         */
-
 
 
 
@@ -129,9 +126,9 @@ __global__ void calcB(T* nodes, unsigned int* connections, T* normals, unsigned 
                     if (abs(Z) < eps) Upq[jj][kk] = 0.0;
 
                     // Add to the local pseudo-B field
-                    localB[0] -= pow((T)(-1.0), (T)(jj+kk)) * (log(Tpq[jj][kk]) - mp[jj] / sqrt(1 + mp[jj] * mp[jj]) * log(Spq[jj][kk]));
-                    localB[1] -= pow((T)(-1.0), (T)(jj+kk)) / sqrt(1 + mp[jj] * mp[jj]) * log(Spq[jj][kk]);
-                    localB[2] -= pow((T)(-1.0), (T)(jj+kk)) * atan(Upq[jj][kk]);
+                    localB[0] += pow((T)(-1.0), (T)(jj+kk)) * (log(Tpq[jj][kk]) - mp[jj] / sqrt(1 + mp[jj] * mp[jj]) * log(Spq[jj][kk]));
+                    localB[1] += pow((T)(-1.0), (T)(jj+kk)) / sqrt(1 + mp[jj] * mp[jj]) * log(Spq[jj][kk]);
+                    localB[2] += pow((T)(-1.0), (T)(jj+kk)) * atan(Upq[jj][kk]);
                 }
             }
 
@@ -143,10 +140,6 @@ __global__ void calcB(T* nodes, unsigned int* connections, T* normals, unsigned 
             } else {
                 for (int jj = 0; jj < 3; jj++) B[jj * numTriangles * numTriangles + index * numTriangles + ii] = 0.0;
             }
-
-
-
-
         }
     }
 }

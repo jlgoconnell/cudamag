@@ -2,7 +2,7 @@ import numpy as np
 import uuid
 import os
 import cupy as cp
-import open3d as o3d
+from scipy.spatial import ConvexHull
 
 
 class Magnet:
@@ -16,27 +16,67 @@ class Magnet:
         self._id = uuid.uuid4()
 
         # Set up pointcloud
-        self._pc = o3d.t.geometry.PointCloud(vertices)
-        self._mesh = self._pc.compute_convex_hull().to_legacy()
+        self._hull = ConvexHull(self._vertices)
+        self._mesh = self._hull.simplices
+        self._normals = self._hull.equations[:, :3]
+        
+        # Compute the area of each mesh element
+        vecs_a = self._vertices[self._mesh[:, 1]] - self._vertices[self._mesh[:, 0]]
+        vecs_b = self._vertices[self._mesh[:, 2]] - self._vertices[self._mesh[:, 0]]
+        self._areas = 0.5 * np.linalg.norm(np.cross(vecs_a, vecs_b), axis=1)
 
-        # Compute the mesh properties
-        self.compute_mesh_properties()
+        self._sigma = np.asarray(self._normals) @ self._magnetisation
 
 
     def subdivide(self, quantisation: int = 1) -> None:
         # Subdivide mesh then recompute mesh properties
-        self._mesh = self._mesh.subdivide_midpoint(quantisation)
-        self.compute_mesh_properties()
+        if quantisation > 1:
+            num_triangles = len(self._mesh)
+            # For each triangle in the mesh, subdivide it:
+            for i in range(num_triangles):
+                # Do an n^2 subdivision routine
+                vec_a = self._vertices[self._mesh[i, 0], :] - self._vertices[self._mesh[i, 1], :]
+                vec_b = self._vertices[self._mesh[i, 2], :] - self._vertices[self._mesh[i, 1], :]
+                pt_ctr = len(self._vertices)-1
+                for j in range(quantisation):
+                    # Add new points
+                    for k in range(quantisation-j-1):
+                        self._vertices = np.append(self._vertices, [self._vertices[self._mesh[i, 1], :] + (j+0.0)/quantisation * vec_a + (k+1.0)/quantisation * vec_b], axis=0)
+                    if j != 0:
+                        self._vertices = np.append(self._vertices, [self._vertices[self._mesh[i, 1], :] + (j+0.0)/quantisation * vec_a + (quantisation-j)/quantisation * vec_b], axis=0)
+                    if j != quantisation-1:
+                        self._vertices = np.append(self._vertices, [self._vertices[self._mesh[i, 1], :] + (j+1.0)/quantisation * vec_a], axis=0)
 
-    
-    def compute_mesh_properties(self) -> None:
-        self._mesh.compute_triangle_normals()
-        self._connections = np.asarray(self._mesh.triangles)
-        self._nodes = np.asarray(self._mesh.vertices)
-        self._sigma = np.asarray(self._mesh.triangle_normals) @ self._magnetisation
-        self._centres = np.mean([self._nodes[self._connections[:,i],:] for i in range(3)], axis=0)
-        self._normals = np.asarray(self._mesh.triangle_normals)
-        self._areas = np.array(0.5 * np.linalg.norm(np.cross(self._nodes[self._connections[:,0],:] - self._nodes[self._connections[:,1],:], self._nodes[self._connections[:,0],:] - self._nodes[self._connections[:,2],:]), axis=1))
+                # Compute the triangles
+                for j in range(quantisation-1):
+                    bl_tri = True
+                    if j == 0:
+                        offset = quantisation
+                    else:
+                        offset = quantisation - j + 1
+                    for k in range(2*(quantisation-j)-1):
+                        if bl_tri:
+                            self._mesh = np.append(self._mesh, [[pt_ctr, pt_ctr+1, pt_ctr+offset]], axis=0)
+                            pt_ctr += 1
+                            bl_tri = False
+                        else:
+                            self._mesh = np.append(self._mesh, [[pt_ctr, pt_ctr+offset, pt_ctr+offset-1]], axis=0)
+                            bl_tri = True
+
+                    if j == 0:
+                        # Fix ends
+                        self._mesh[-2*quantisation+1,0] = self._mesh[i, 1]
+                        self._mesh[-1,1] = self._mesh[i, 2]
+                    else:
+                        offset += 1
+                        pt_ctr += 1
+
+                
+                self._mesh[i, :] = [len(self._vertices)-2, len(self._vertices)-1, self._mesh[i, 0]]
+                self._areas[i] = self._areas[i] / quantisation**2
+                self._areas = np.append(self._areas, np.repeat(self._areas[i], quantisation**2 - 1))
+                self._normals = np.append(self._normals, np.repeat([self._normals[i, :]], quantisation**2 - 1, axis=0), axis=0)
+                self._sigma = np.append(self._sigma, np.repeat(self._sigma[i], quantisation**2 - 1))
 
 
     def move(self, displacement: np.array = np.array([0,0,0])) -> None:
@@ -61,12 +101,10 @@ class CudaMag:
     def __init__(self) -> None:
         self._magnets: list[Magnet] = []
         self._dir_path = os.path.dirname(os.path.realpath(__file__))
-        print("Initialised class.")
 
 
     def add_magnet(self, magnet: Magnet) -> None:
         self._magnets.append(magnet)
-        print("Added magnet.")
 
 
     def remove_magnet(self, magnet: Magnet) -> None:
@@ -89,21 +127,20 @@ class CudaMag:
             h_num_pts = h_num_pts + len(magnet._areas)
 
         # Assign GPU memory
-        d_sigma = cp.array(h_sigma, dtype=data_type)
-        d_area = cp.array(h_area, dtype=data_type)
-        d_B = cp.zeros((3, h_num_pts, h_num_pts), dtype=data_type)
-        d_normals = cp.array(np.concatenate(([magnet._normals for magnet in self._magnets]), axis=0), dtype=data_type)
+        d_sigma = cp.array(h_sigma, dtype=data_type, order='C')
+        d_area = cp.array(h_area, dtype=data_type, order='C')
+        d_B = cp.zeros((3, h_num_pts, h_num_pts), dtype=data_type, order='C')
+        d_normals = cp.array(np.concatenate(([magnet._normals for magnet in self._magnets]), axis=0), dtype=data_type, order='C')
 
-        d_nodes = cp.array(np.concatenate([magnet._nodes for magnet in self._magnets]), dtype=data_type)
-        h_connections = np.zeros((sum([len(magnet._connections) for magnet in self._magnets]), 3))
+        d_nodes = cp.array(np.concatenate([magnet._vertices for magnet in self._magnets]), dtype=data_type, order='C')
+        h_connections = np.zeros((sum([len(magnet._mesh) for magnet in self._magnets]), 3))
         ctr = 0
         # This is a bit janky, to fix:
         for ii, magnet in enumerate(self._magnets):
-            h_connections[ctr:ctr+len(magnet._connections), :] = np.max(h_connections) + magnet._connections + ii
-            ctr = ctr + len(magnet._connections)
-        d_connections = cp.array(h_connections, dtype=np.uint32)
-
-        # Set up CUDA code and construct B matrix
+            h_connections[ctr:ctr+len(magnet._mesh), :] = np.max(h_connections) + magnet._mesh + ii
+            ctr = ctr + len(magnet._mesh)
+        d_connections = cp.array(h_connections, dtype=np.uint32, order='C')
+        
         threads_per_block = 32
         blocks_per_grid = (int)(np.ceil(h_num_pts / threads_per_block))
         with open(self._dir_path + "/cuda/calcB.cu") as f:
@@ -116,7 +153,9 @@ class CudaMag:
             cuda_module = cp.RawModule(code=f.read(), name_expressions=name_exp)
             calc_B_kernel = cuda_module.get_function(name_exp[0])
 
-        calc_B_kernel((threads_per_block,), (blocks_per_grid,), (d_nodes, d_connections, d_normals, len(d_nodes), len(d_connections), d_B))
+        num_triangles = sum([np.shape(magnet._mesh)[0] for magnet in self._magnets])
+        num_nodes = sum([np.shape(magnet._vertices)[0] for magnet in self._magnets])
+        calc_B_kernel((threads_per_block,), (blocks_per_grid,), (d_nodes, d_connections, d_normals, num_nodes, num_triangles, d_B))
 
         # Compute forces
         d_F = d_sigma @ d_B @ (d_sigma * d_area).transpose() * 1e-7
